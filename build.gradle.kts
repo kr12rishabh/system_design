@@ -7,7 +7,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     id("checkstyle")
     id("jacoco")
-    id("com.gorylenko.gradle-git-properties") version "2.4.2"
+    id("com.gorylenko.gradle-git-properties") version "2.5.7"
     id("org.sonarqube") version "5.1.0.4882"
 }
 
