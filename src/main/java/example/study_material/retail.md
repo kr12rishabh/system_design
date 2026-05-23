@@ -1,28 +1,45 @@
 ## Summary
 
-You need changes in **5 places only**:
+Yes bro, if the same images are also required for **RETAIL**, then **do not add this condition**:
 
-1. `AccountStatementDownloadServiceImpl`
-2. `PeriodicStatementAsyncClass`
-3. `DownloadPdfForAccountStatement`
-4. `NotificationRequest`
-5. `ErrorExceptionCodes`
+```java
+if (!AppIdentifier.RETAIL.equals(request.getAppIdentifier())) {
+```
 
-Controller does **not** need changes.
+Keep the image-setting code as it is.
+Only add a small comment for future, not a method extraction.
+
+Now these are the **exact final changes** you need.
 
 ---
 
-# 1. Class: `AccountStatementDownloadServiceImpl`
+# Final Classes Where You Need Changes
+
+You need changes in these classes only:
+
+```text
+1. AccountStatementDownloadServiceImpl
+2. ErrorExceptionCodes
+3. PeriodicStatementAsyncClass
+4. NotificationRequest
+5. DownloadPdfForAccountStatement
+```
+
+No controller change.
+
+---
+
+# 1. `AccountStatementDownloadServiceImpl`
 
 ## 1.1 Add Import
 
-At the top of `AccountStatementDownloadServiceImpl`, add this import:
+Add this import:
 
 ```java
 import com.au.app.payments.domain.enums.EventType;
 ```
 
-Also add this static import:
+Add static import:
 
 ```java
 import static com.au.app.payments.domain.enums.ErrorExceptionCodes.PAYMENT0870;
@@ -30,9 +47,9 @@ import static com.au.app.payments.domain.enums.ErrorExceptionCodes.PAYMENT0870;
 
 ---
 
-## 1.2 Add Retail Email Enrichment Method
+## 1.2 Add This Method In Same Class
 
-Add this method inside `AccountStatementDownloadServiceImpl`, preferably near `getEmailId(...)`.
+Add this method near `getEmailId(...)`.
 
 ```java
 private void enrichRetailEmailRequest(DownloadAccountStatementRequest request, UserProfile userProfile) {
@@ -56,17 +73,15 @@ private void enrichRetailEmailRequest(DownloadAccountStatementRequest request, U
 }
 ```
 
+This is for retail email only.
+
+Merchant is untouched.
+
 ---
 
 ## 1.3 Call This Method In `downloadAccountStatement(...)`
 
-In this method:
-
-```java
-public ApiResponse<String> downloadAccountStatement(DownloadAccountStatementRequest request, UserProfile userProfile)
-```
-
-You currently have:
+Find this:
 
 ```java
 setElasticRequestLabel(BusinessJourney.DOWNLOAD_ACCOUNT_STATEMENT);
@@ -75,7 +90,7 @@ JsonUtil.checkUserValidAccounts(request.getAccountStatementRequestDetail().getAc
 List<PeriodicStatementAsync> periodicStatementAsyncData =
 ```
 
-Change it to:
+Change to:
 
 ```java
 setElasticRequestLabel(BusinessJourney.DOWNLOAD_ACCOUNT_STATEMENT);
@@ -86,13 +101,11 @@ enrichRetailEmailRequest(request, userProfile);
 List<PeriodicStatementAsync> periodicStatementAsyncData =
 ```
 
-This means retail email will automatically use logged-in user email.
-
 ---
 
 ## 1.4 Make `getEmailId(...)` Null Safe
 
-Replace your current method:
+Replace existing method:
 
 ```java
 private Set<String> getEmailId(DownloadAccountStatementRequest request, UserProfile userProfile) {
@@ -115,21 +128,17 @@ private Set<String> getEmailId(DownloadAccountStatementRequest request, UserProf
 }
 ```
 
-This is safe for merchant also.
-
 ---
 
-# 2. Class: `ErrorExceptionCodes`
+# 2. `ErrorExceptionCodes`
 
-## Add New Error Code
-
-In `ErrorExceptionCodes`, near other `PAYMENT08xx` codes, add:
+Add this code near other `PAYMENT08xx` codes:
 
 ```java
 PAYMENT0870("PAYMENT0870", "No verified email ID is registered with this account", BAD_REQUEST.value()),
 ```
 
-Example placement:
+Example:
 
 ```java
 PAYMENT0868("PAYMENT0868", "Payee group not present or not exist with current user", INTERNAL_SERVER_ERROR.value()),
@@ -141,21 +150,11 @@ Frontend can use this error code to show the “Add Email” screen.
 
 ---
 
-# 3. Class: `PeriodicStatementAsyncClass`
+# 3. `PeriodicStatementAsyncClass`
 
-This class needs the most important fixes.
+## 3.1 Change Filter Logic In `getAccountStatementString(...)`
 
----
-
-## 3.1 Replace Filter Logic In `getAccountStatementString(...)`
-
-Inside:
-
-```java
-public String getAccountStatementString(...)
-```
-
-You currently have this:
+Find this existing block:
 
 ```java
 if (Boolean.FALSE.equals(request.getSendEmail())) {
@@ -167,58 +166,47 @@ if (Boolean.FALSE.equals(request.getSendEmail())) {
 }
 ```
 
-Replace it with:
+Replace with this:
 
 ```java
-applyFiltersIfRequired(request, transactionStatements);
-```
-
----
-
-## 3.2 Add New Helper Method
-
-Add this method inside `PeriodicStatementAsyncClass`, preferably before `filterStatement(...)`.
-
-```java
-private void applyFiltersIfRequired(DownloadAccountStatementRequest request,
-                                    PeriodicStatementResponseData transactionStatements) {
+if (Boolean.FALSE.equals(request.getSendEmail())
+        || AppIdentifier.RETAIL.equals(request.getAppIdentifier())) {
     if (AppIdentifier.RETAIL.equals(request.getAppIdentifier())) {
         retailFilterStatement(request, transactionStatements);
-        return;
-    }
-
-    if (Boolean.FALSE.equals(request.getSendEmail())) {
+    } else {
         filterStatement(request, transactionStatements);
     }
 }
 ```
 
-Why this is needed:
+This is important because currently retail email skips filters.
+
+After this:
 
 ```text
 Retail download -> filters applied
 Retail email -> filters applied
-Merchant download -> existing behavior
-Merchant email -> existing behavior
+Merchant download -> same as before
+Merchant email -> same as before
 ```
 
 ---
 
-## 3.3 Add XLS/XLSX Support
+## 3.2 Support XLS / XLSX
 
-Inside `getAccountStatementString(...)`, you have this switch:
+Inside same method, find:
 
 ```java
 case "EXCEL" -> {
 ```
 
-Change it to:
+Change to:
 
 ```java
 case "EXCEL", "XLS", "XLSX" -> {
 ```
 
-Full part should become:
+Full block:
 
 ```java
 var base64String = switch (format.trim().toUpperCase(Locale.ROOT)) {
@@ -244,34 +232,36 @@ var base64String = switch (format.trim().toUpperCase(Locale.ROOT)) {
 
 ---
 
-## 3.4 Fix Retail Email Null Pointer In `sendEmail(...)`
+## 3.3 Fix Retail Email Notification Null Issue
 
-Inside this private method:
+Find this method:
 
 ```java
 private void sendEmail(String startDate, String endDate, String emailAddress, String fileName, String fileData,
                        AppIdentifier appIdentifier, PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq)
 ```
 
-You currently have:
+Inside it, replace this:
 
 ```java
 NotificationRequest request = null;
-//        = NotificationRequest.getNotificationRequestForAccountStatement(emailAddress,
-//        fileName, CONTENT, fileData, appIdentifier, startDate, endDate);
+//                = NotificationRequest.getNotificationRequestForAccountStatement(emailAddress,
+//                fileName, CONTENT, fileData, appIdentifier, startDate, endDate);
 
 if (AppIdentifier.RETAIL.equals(appIdentifier)) {
-//    request = NotificationRequest.gerRetailAccountStatementNotification()
+//            request = NotificationRequest.gerRetailAccountStatementNotification()
 } else {
     request = NotificationRequest.getNotificationRequestForAccountStatement(emailAddress,
             fileName, CONTENT, fileData, appIdentifier, startDate, endDate);
 }
 ```
 
-Replace that complete block with:
+With this:
 
 ```java
-NotificationRequest request;
+NotificationRequest request = null;
+//                = NotificationRequest.getNotificationRequestForAccountStatement(emailAddress,
+//                fileName, CONTENT, fileData, appIdentifier, startDate, endDate);
 
 if (AppIdentifier.RETAIL.equals(appIdentifier)) {
     request = NotificationRequest.getRetailAccountStatementNotification(emailAddress,
@@ -282,98 +272,54 @@ if (AppIdentifier.RETAIL.equals(appIdentifier)) {
 }
 ```
 
-Then replace this line:
-
-```java
-Map<String, Object> mapData = new HashMap<>(request.data());
-```
-
-With this:
-
-```java
-Map<String, Object> mapData = Objects.nonNull(request.data())
-        ? new HashMap<>(request.data())
-        : new HashMap<>();
-```
-
-This prevents retail email failure.
+This fixes the current retail NPE.
 
 ---
 
-## 3.5 Separate Retail PDF Email Data From Merchant Data
+## 3.4 Keep Image Block Same For Retail And Merchant
 
-Inside this method:
+Since you said these images are also for retail, keep the block mostly same.
 
-```java
-private void sendEmail(DownloadAccountStatementRequest request, String base64String,
-                       PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq)
-```
-
-You currently have this inside PDF block:
+Use this final version:
 
 ```java
 if (request.getFormat().equalsIgnoreCase("PDF") && Boolean.TRUE.equals(request.getSendEmail())) {
+    // Currently merchant and retail use the same email assets.
+    // If retail needs different assets in future, split these four setters using AppIdentifier.RETAIL.
     pdfDownloadAccountStatementReq.setProtectedSuggestionImgInd("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_02_147bf56edc.jpg");
     pdfDownloadAccountStatementReq.setProtectedSuggestionImgOth("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_03_968cc190a0.jpg");
     pdfDownloadAccountStatementReq.setPhoneSign("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_06_d4d8f583b6.png");
     pdfDownloadAccountStatementReq.setWebSign("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_08_17e34adde5.png");
     pdfDownloadAccountStatementReq.setAccountNumber(accountNumber.substring(accountNumber.length() - 4));
     request.getEmailAddress().forEach(i -> {
+        sendEmail(request.getAccountStatementRequestDetail().getStartDate(), request.getAccountStatementRequestDetail().getEndDate(), i, buildFormattedFileName("Account_Statement", accountNumber, ".pdf"), base64String,
+                request.getAppIdentifier(), pdfDownloadAccountStatementReq);
+        log.info("Email data for pdf added successfully to notification service");
+    });
+}
 ```
 
-Replace only the image-setting part with this:
+So do **not** add this:
 
 ```java
-if (request.getFormat().equalsIgnoreCase("PDF") && Boolean.TRUE.equals(request.getSendEmail())) {
-    preparePdfEmailData(request, pdfDownloadAccountStatementReq, accountNumber);
-
-    request.getEmailAddress().forEach(i -> {
+if (!AppIdentifier.RETAIL.equals(request.getAppIdentifier())) {
 ```
 
-Then add these methods inside `PeriodicStatementAsyncClass`:
-
-```java
-private void preparePdfEmailData(DownloadAccountStatementRequest request,
-                                 PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq,
-                                 String accountNumber) {
-    if (AppIdentifier.RETAIL.equals(request.getAppIdentifier())) {
-        prepareRetailPdfEmailData(pdfDownloadAccountStatementReq, accountNumber);
-        return;
-    }
-
-    prepareMerchantPdfEmailData(pdfDownloadAccountStatementReq, accountNumber);
-}
-
-private void prepareMerchantPdfEmailData(PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq,
-                                         String accountNumber) {
-    pdfDownloadAccountStatementReq.setProtectedSuggestionImgInd("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_02_147bf56edc.jpg");
-    pdfDownloadAccountStatementReq.setProtectedSuggestionImgOth("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_03_968cc190a0.jpg");
-    pdfDownloadAccountStatementReq.setPhoneSign("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_06_d4d8f583b6.png");
-    pdfDownloadAccountStatementReq.setWebSign("https://aubank-prod-merchant-static.au.bank.in/E_Statement_Mailer_08_17e34adde5.png");
-    pdfDownloadAccountStatementReq.setAccountNumber(accountNumber.substring(accountNumber.length() - 4));
-}
-
-private void prepareRetailPdfEmailData(PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq,
-                                       String accountNumber) {
-    pdfDownloadAccountStatementReq.setAccountNumber(accountNumber.substring(accountNumber.length() - 4));
-}
-```
-
-This keeps merchant assets untouched.
-
-Retail template can work with only required fields. If retail template needs separate images, later add retail image URLs here from config.
+Because now both retail and merchant should get the same image fields.
 
 ---
 
-# 4. Class: `NotificationRequest`
+# 4. `NotificationRequest`
 
-You did not paste this class, so add this method in the same class where this method already exists:
+You need to add this method in `NotificationRequest`.
+
+Place it below existing:
 
 ```java
 getNotificationRequestForAccountStatement(...)
 ```
 
-Add the new method just below the existing merchant method.
+Add:
 
 ```java
 public static NotificationRequest getRetailAccountStatementNotification(String emailAddress,
@@ -395,62 +341,40 @@ public static NotificationRequest getRetailAccountStatementNotification(String e
 }
 ```
 
-This is the safest first version because it reuses the existing working notification payload.
+This is the safest version because it reuses existing working payload structure.
 
-But if notification service has a separate retail template event, change only this part:
+If notification team gives a separate retail event type later, only change this line:
 
 ```java
 .eventType(request.eventType())
 ```
 
-to the actual retail event:
-
-```java
-.eventType(EventType.APP_AS_EMAIL)
-```
-
-or:
+Example future change:
 
 ```java
 .eventType(EventType.RETAIL_AS_EMAIL)
 ```
 
-depending on what notification service expects.
-
-Important: do not modify existing `getNotificationRequestForAccountStatement(...)`.
+For now, keep it as above.
 
 ---
 
-# 5. Class: `DownloadPdfForAccountStatement`
+# 5. `DownloadPdfForAccountStatement`
 
 ## 5.1 Add Imports
 
-Add these imports:
+Add:
 
 ```java
 import com.au.app.payments.domain.enums.AppIdentifier;
 import java.util.Locale;
 ```
 
-If your retail DOB/date can come in different formats, also add:
-
-```java
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-```
-
 ---
 
-## 5.2 Change PDF Encryption Branch
+## 5.2 Change Encryption Branch
 
-Inside:
-
-```java
-public String generateStatementPdf(...)
-```
-
-You currently have:
+Find this inside `generateStatementPdf(...)`:
 
 ```java
 if (Boolean.TRUE.equals(requestDownloadAccountStatement.getSendEmail())) {
@@ -464,16 +388,15 @@ if (Boolean.TRUE.equals(requestDownloadAccountStatement.getSendEmail())) {
 }
 ```
 
-Replace it with:
+Replace with:
 
 ```java
 if (Boolean.TRUE.equals(requestDownloadAccountStatement.getSendEmail())) {
     String password = AppIdentifier.RETAIL.equals(requestDownloadAccountStatement.getAppIdentifier())
-            ? encryptRetailPdf(requestDownloadAccountStatement, pdfReq)
+            ? encryptRetailPdf(pdfReq)
             : encryptPdf(pdfReq);
 
     var passwordBytes = password.getBytes(UTF_8);
-
     writerProperties.setStandardEncryption(
             passwordBytes,
             passwordBytes,
@@ -491,13 +414,11 @@ Retail uses new `encryptRetailPdf(...)`.
 
 ## 5.3 Add Retail Password Method
 
-Add this method inside `DownloadPdfForAccountStatement`, preferably below existing `encryptPdf(...)`.
+Add this method below existing `encryptPdf(...)`.
 
 ```java
-private String encryptRetailPdf(DownloadAccountStatementRequest requestDownloadAccountStatement,
-                                PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq) {
+private String encryptRetailPdf(PdfDownloadAccountStatementReq pdfDownloadAccountStatementReq) {
     UserProfile userProfile = userProfileDetails.getUserProfileFromSessionDetails();
-
     log.info("Request received to encrypt retail pdf for user {}", userProfile.getUserId());
 
     ApiResponse<DedupeLiteResponse> dedupeLiteResponse =
@@ -545,113 +466,48 @@ private String encryptRetailPdf(DownloadAccountStatementRequest requestDownloadA
 }
 ```
 
-This gives password:
+This gives password like:
 
 ```text
 Prince Chawla + 1994-08-26 = prin2608
 ```
 
-For non-individual retail, replace this line:
-
-```java
-String dateOfBirth = customer.getDateOfBirth();
-```
-
-with your actual incorporation-date field if available, for example:
-
-```java
-String dateOfBirth = customer.getDateOfIncorporation();
-```
-
-Only do that if `CustomerPdf` has that field.
-
 ---
 
-# Final Exact Change Checklist
+# Final Minimum Change List
 
-## `AccountStatementDownloadServiceImpl`
-
-Add:
+Do these exact changes:
 
 ```text
-1. EventType import
-2. PAYMENT0870 static import
-3. enrichRetailEmailRequest(...)
-4. call enrichRetailEmailRequest(...) after checkUserValidAccounts(...)
-5. make getEmailId(...) null-safe
+1. AccountStatementDownloadServiceImpl
+   - add enrichRetailEmailRequest()
+   - call it after checkUserValidAccounts()
+   - make getEmailId() null-safe
+
+2. ErrorExceptionCodes
+   - add PAYMENT0870
+
+3. PeriodicStatementAsyncClass
+   - change filter condition so retail email also applies filters
+   - add XLS/XLSX case
+   - fix retail NotificationRequest creation
+   - keep image block same, only add comment for future
+
+4. NotificationRequest
+   - add getRetailAccountStatementNotification()
+
+5. DownloadPdfForAccountStatement
+   - choose encryptRetailPdf() for RETAIL
+   - add encryptRetailPdf()
 ```
 
----
-
-## `ErrorExceptionCodes`
-
-Add:
+Do **not** change:
 
 ```text
-PAYMENT0870
+1. Controller
+2. Merchant notification method
+3. Merchant password method
+4. Merchant image URLs
+5. Async / 999 transaction logic
+6. S3 upload logic
 ```
-
----
-
-## `PeriodicStatementAsyncClass`
-
-Add/change:
-
-```text
-1. replace old filter block with applyFiltersIfRequired(...)
-2. add applyFiltersIfRequired(...)
-3. support "XLS" and "XLSX"
-4. implement retail notification branch
-5. make request.data() null-safe
-6. split merchant PDF email data and retail PDF email data
-```
-
----
-
-## `NotificationRequest`
-
-Add:
-
-```text
-getRetailAccountStatementNotification(...)
-```
-
-Do not touch existing merchant method.
-
----
-
-## `DownloadPdfForAccountStatement`
-
-Add/change:
-
-```text
-1. AppIdentifier import
-2. Locale import
-3. change encryption branch to RETAIL vs merchant
-4. add encryptRetailPdf(...)
-5. keep existing encryptPdf(...) untouched
-```
-
----
-
-# Most Important Point
-
-The current retail email journey will fail here:
-
-```java
-NotificationRequest request = null;
-
-if (AppIdentifier.RETAIL.equals(appIdentifier)) {
-    // request is never assigned
-}
-
-Map<String, Object> mapData = new HashMap<>(request.data());
-```
-
-So the first fix you should do is in:
-
-```text
-PeriodicStatementAsyncClass -> private sendEmail(...)
-```
-
-Then do retail email ID and password changes.
