@@ -10,19 +10,14 @@ public enum EnumSample {
     TUESDAY {
         @Override
         public void abstractMethods() {
-
             System.out.println("Tuesday abstract method...");
-
         }
     },
     WEDNESDAY {
         @Override
         public void abstractMethods() {
-
             System.out.println("Wednesday abstract method...");
-
         }
     };
-
     public abstract void abstractMethods();
 }
