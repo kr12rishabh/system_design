@@ -11,7 +11,7 @@ public enum EnumSample {
         @Override
         public void abstractMethods() {
 
-            System.out.println("Monday abstract method...");
+            System.out.println("Tuesday abstract method...");
 
         }
     },
@@ -19,7 +19,7 @@ public enum EnumSample {
         @Override
         public void abstractMethods() {
 
-            System.out.println("Monday abstract method...");
+            System.out.println("Wednesday abstract method...");
 
         }
     };
