@@ -1,58 +1,66 @@
 # Lesson 1 - OOP for Low Level Design
 
-We are not learning OOP only for definitions.
+This lesson is not about memorizing college definitions.
 
-We are learning OOP because almost every LLD problem is made using objects that have:
-
-- data
-- behaviour
-- relationships with other objects
+The goal is to understand how OOP helps us create clean objects for real Low Level Design problems such as Parking Lot, Elevator, Hotel Management, Splitwise and WhatsApp.
 
 ---
 
-# 1. Class
+## The Main LLD Question
 
-A class is a blueprint.
+While designing a system, keep asking:
 
-Example:
+> Which object should be responsible for this work?
+
+For example, in a Hotel Management System:
+
+```text
+Room    -> room number, type, availability
+Guest   -> guest information
+Booking -> booking information
+Payment -> payment behaviour
+```
+
+Do not put every responsibility inside one giant class.
+
+---
+
+# 1. Class and Object
+
+A **class is a blueprint**.
+
+An **object is a real instance created from that blueprint**.
 
 ```java
 class Car {
     String brand;
 
     void drive() {
-        System.out.println("Car is driving");
+        System.out.println(brand + " is driving");
     }
 }
 ```
 
-`Car` tells Java what a car object should contain.
-
----
-
-# 2. Object
-
-An object is a real instance of a class.
-
 ```java
-Car car = new Car();
+Car bmw = new Car();
+Car audi = new Car();
 ```
 
-Here:
+`Car` is the class. `bmw` and `audi` are objects.
 
-- `Car` = class
-- `car` = reference variable
-- `new Car()` = object creation
+In an LLD interview, requirements help us discover classes such as `User`, `Order`, `Payment`, `Room`, `Vehicle`, `Message`, etc.
+
+Run: `ClassAndObjectDemo.java`
 
 ---
 
-# 3. Encapsulation
+# 2. Encapsulation
 
 Simple meaning:
 
-> Keep object data protected and control how somebody changes it.
+> Protect an object's data and control how that data changes.
 
-Bad:
+Bad design:
 
 ```java
 class BankAccount {
@@ -60,13 +68,13 @@ class BankAccount {
 }
 ```
 
-Anybody can do this:
+Anybody could write:
 
 ```java
-account.balance = -100000;
+account.balance = -50000;
 ```
 
-Better:
+Better design:
 
 ```java
 class BankAccount {
@@ -77,24 +85,20 @@ class BankAccount {
             balance += amount;
         }
     }
-
-    public double getBalance() {
-        return balance;
-    }
 }
 ```
 
-Now the class controls how balance is changed.
+Now `BankAccount` controls its own state.
+
+Run: `EncapsulationDemo.java`
 
 ---
 
-# 4. Abstraction
+# 3. Abstraction
 
 Simple meaning:
 
-> Show what an object can do. Hide unnecessary internal details.
-
-Example:
+> Show what an object can do and hide unnecessary internal details.
 
 ```java
 interface Payment {
@@ -102,17 +106,21 @@ interface Payment {
 }
 ```
 
-A user of `Payment` only needs to know that payment can happen.
+The caller only needs to know:
 
-The user does not need to know all internal UPI or card steps.
+```java
+payment.pay(500);
+```
+
+The caller does not need to know every bank call or validation happening internally.
+
+Run: `AbstractionDemo.java`
 
 ---
 
-# 5. Inheritance
+# 4. Inheritance
 
-Simple meaning:
-
-> One class gets common behaviour from another class.
+Inheritance represents an **IS-A relationship**.
 
 ```java
 class Vehicle {
@@ -125,209 +133,258 @@ class Car extends Vehicle {
 }
 ```
 
-A `Car` IS-A `Vehicle`.
+```text
+Car IS-A Vehicle
+```
 
-This is called an **IS-A relationship**.
+Do not use inheritance only because two classes have similar code.
 
-Use inheritance only when the relationship is truly IS-A.
+Use it when the child truly represents a specialized form of the parent.
+
+Run: `InheritanceDemo.java`
 
 ---
 
-# 6. Polymorphism
+# 5. Polymorphism
 
 Simple meaning:
 
-> Same reference type, different behaviour.
+> Same contract, different behaviour.
 
 ```java
-Payment payment = new UpiPayment();
-payment.pay(500);
+Notification notification = new EmailNotification();
+notification.send("Hello");
 
-payment = new CreditCardPayment();
-payment.pay(500);
+notification = new SmsNotification();
+notification.send("Hello");
 ```
 
-Same `Payment` reference.
+The reference type is the same, but the implementation changes.
 
-Different implementation.
+Polymorphism helps us remove large `if/else` blocks and is heavily used by design patterns.
 
-This is extremely important in LLD because it helps us avoid large `if/else` blocks.
+Run: `PolymorphismDemo.java`
 
 ---
 
-# 7. Interface
+# 6. Interface
 
-An interface describes a contract.
+An interface is a **contract**.
 
 ```java
-interface Payment {
-    void pay(double amount);
+interface Notification {
+    void send(String message);
 }
 ```
 
-Any class implementing `Payment` promises that it can perform `pay()`.
+Any class implementing it promises to provide `send()`.
 
-```java
-class UpiPayment implements Payment {
-    @Override
-    public void pay(double amount) {
-        System.out.println("Paid using UPI: " + amount);
-    }
-}
+Examples:
+
+```text
+Notification
+    |
+    +-- EmailNotification
+    +-- SmsNotification
+    +-- PushNotification
 ```
+
+Higher-level code can work with `Notification` instead of depending on one fixed notification type.
+
+Run: `InterfaceDemo.java`
 
 ---
 
-# 8. Abstract Class
+# 7. Abstract Class
 
-An abstract class is useful when multiple child classes share some common state or behaviour but still need their own implementation for some methods.
+An abstract class is useful when child classes share common state or common behaviour, but still need to implement some behaviour themselves.
 
 ```java
 abstract class Vehicle {
-
     protected String number;
 
-    public Vehicle(String number) {
-        this.number = number;
-    }
-
-    public void printNumber() {
+    void printNumber() {
         System.out.println(number);
     }
 
-    public abstract void drive();
+    abstract void drive();
 }
 ```
 
+Simple way to remember:
+
+```text
+Interface
+-> mainly describes a contract/capability
+
+Abstract class
+-> can provide common state + common code + incomplete behaviour
+```
+
+Run: `AbstractClassDemo.java`
+
 ---
 
-# 9. IS-A vs HAS-A
-
-This is very important in LLD.
+# 8. IS-A vs HAS-A
 
 ## IS-A
 
 ```text
 Car IS-A Vehicle
+Admin IS-A User
 Dog IS-A Animal
 ```
 
-Normally represented using inheritance.
+Usually represented with inheritance.
 
 ## HAS-A
 
 ```text
 Car HAS-A Engine
 Order HAS-A Payment
-Hotel HAS-A List of Rooms
+Hotel HAS-A Rooms
+User HAS-A Address
 ```
 
-Normally represented using composition.
+Usually represented by one object containing or using another object.
+
+Run: `IsAHasADemo.java`
+
+---
+
+# 9. Composition Over Inheritance
+
+Composition means building an object using other objects.
 
 Example:
 
-```java
-class Engine {
-    void start() {
-        System.out.println("Engine started");
-    }
-}
-
-class Car {
-    private Engine engine;
-
-    Car(Engine engine) {
-        this.engine = engine;
-    }
-}
-```
-
----
-
-# 10. Composition Over Inheritance
-
-In many LLD problems, composition is more flexible than inheritance.
-
-Suppose different cars can have different drive behaviours.
-
-Instead of creating many inheritance combinations, we can give the car a behaviour object.
-
 ```text
-Car HAS-A DriveStrategy
+Car HAS-A DriveBehaviour
 ```
 
-This idea later becomes very useful in the **Strategy Design Pattern**.
+Instead of creating many subclasses just to change driving behaviour, we can inject a behaviour object.
+
+```java
+class Car {
+    private DriveBehaviour driveBehaviour;
+}
+```
+
+This makes the design more flexible.
+
+Later this same idea will naturally lead us to the **Strategy Design Pattern**.
+
+Run: `CompositionOverInheritanceDemo.java`
 
 ---
 
-# First Important LLD Example - Payment System
+# 10. First Combined LLD Example - Payment System
 
 Bad design:
 
 ```java
 class PaymentService {
-
-    public void pay(String type, double amount) {
+    void pay(String type) {
         if (type.equals("UPI")) {
-            System.out.println("UPI payment");
+            // UPI logic
         } else if (type.equals("CARD")) {
-            System.out.println("Card payment");
+            // Card logic
         }
     }
 }
 ```
 
-Problem:
+As payment types increase, this class keeps changing.
 
-Every time we add a new payment type, `PaymentService` must change.
-
-Better idea:
+Better design:
 
 ```text
 Payment
    |
    +-- UpiPayment
-   |
    +-- CreditCardPayment
 ```
 
-Then `PaymentService` works with the `Payment` interface instead of checking payment types itself.
+Then `PaymentService` depends on `Payment` instead of checking every payment type itself.
 
-See `OopPaymentDemo.java` in this package for the runnable example.
+Run: `OopPaymentDemo.java`
 
 ---
 
-# What You Should Remember
+# What To Remember
 
 ```text
-Class       -> blueprint
-Object      -> real instance
-Encapsulation -> protect and control data
-Abstraction -> show necessary behaviour, hide details
-Inheritance -> IS-A
-Composition -> HAS-A
-Polymorphism -> same contract, different behaviour
-Interface   -> contract
+Class          = blueprint
+Object         = real instance
+Encapsulation  = protect and control data
+Abstraction    = hide unnecessary details
+Inheritance    = IS-A
+Composition    = HAS-A / build using other objects
+Polymorphism   = same contract, different behaviour
+Interface      = contract
+Abstract class = common base + incomplete behaviour
 ```
 
-The most important LLD question is not:
+The important goal is not to remember definitions word-for-word.
 
-> Which OOP definition do I remember?
-
-The better question is:
-
-> Which object should own this responsibility?
+The goal is to understand which object should own which responsibility and how objects should work together.
 
 ---
 
-# Practice
+# Lesson 1 Practice
 
-Before moving ahead, try to design these using only OOP:
+## Practice 1 - Notification System
 
-1. `Notification` with Email, SMS and Push implementations.
-2. `Vehicle` with Car, Bike and Truck.
-3. `Shape` with Circle and Rectangle.
-4. `Order` that HAS-A Payment object.
-5. `Computer` that HAS-A Processor and Memory.
+Design a system where Email, SMS and Push Notification all use one common `Notification` contract.
+
+Try it yourself first.
+
+Solution: `practice/NotificationSystemSolution.java`
+
+## Practice 2 - Order HAS-A Payment
+
+Create an `Order` that contains a `Payment` object. The order should be able to checkout using UPI or Card without changing the `Order` class.
+
+Try it yourself first.
+
+Solution: `practice/OrderPaymentCompositionSolution.java`
+
+---
+
+# Files In This Lesson
+
+```text
+oop/
+|
+|-- README.md
+|-- ClassAndObjectDemo.java
+|-- EncapsulationDemo.java
+|-- AbstractionDemo.java
+|-- InheritanceDemo.java
+|-- PolymorphismDemo.java
+|-- InterfaceDemo.java
+|-- AbstractClassDemo.java
+|-- IsAHasADemo.java
+|-- CompositionOverInheritanceDemo.java
+|-- OopPaymentDemo.java
+|
+`-- practice/
+    |-- NotificationSystemSolution.java
+    `-- OrderPaymentCompositionSolution.java
+```
+
+---
+
+# Before Lesson 2
+
+You should be able to explain these in your own simple words:
+
+```text
+Why should fields often be private?
+What is the difference between IS-A and HAS-A?
+Why can interfaces reduce if/else code?
+What does polymorphism mean in actual Java code?
+Why can composition be more flexible than inheritance?
+```
 
 Next lesson: **Class Relationships - Association, Aggregation, Composition, Inheritance and Dependency**.
