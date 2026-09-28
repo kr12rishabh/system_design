@@ -16,4 +16,12 @@ public class Client {
         Employee employee2 = EmployeeFactory.getEmployee(new DesignerFactory());
         employee2.name();
     }
+
+    /*@SafeVarargs
+    public static void printLogValues(List<Integer>...integrList){
+        Object [] anotherList = integrList;
+        List<String> stringList = new ArrayList<>();
+        stringList.add("Hello");
+        anotherList[0] = stringList;
+    }*/
 }

@@ -296,7 +296,7 @@ If we do not need full entity data, fetch only required fields.
        select new com.example.UserOrderDto(u.name, o.amount)
        from User u join u.orders o
        """)
-List<UserOrderDto> fetchUserOrders();
+ÏlisList<UserOrderDto> fetchUserOrders();
 ```
 
 This is often better for read APIs.

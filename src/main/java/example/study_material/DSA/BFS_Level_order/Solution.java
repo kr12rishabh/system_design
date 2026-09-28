@@ -104,6 +104,7 @@ class Solution {
             // temp will become:
             // [2, 3]
             List<Integer> temp = new ArrayList<>();
+//            temp.stream()
 
             // This is very important.
             //
